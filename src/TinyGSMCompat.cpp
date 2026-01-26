@@ -11,7 +11,8 @@ This file is part of the Arduino_ConnectionHandler library.
 // === MODEM PINS ===
 #define MODEM_RX 18
 #define MODEM_TX 17
-#define MODEM_PWRKEY 4  //TODO
+#define MODEM_PWRKEY 13
+#define MODEM_RSTKEY 11
 
 #include "TinyGSMCompat.h"
 
