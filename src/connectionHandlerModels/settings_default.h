@@ -60,6 +60,10 @@ namespace models {
     case NetworkAdapter::GSM: // nothing todo, default optional values are fine with 0
     #endif  //defined(BOARD_HAS_GSM)
 
+    #if defined(BOARD_HAS_TINY_GSM)
+          case NetworkAdapter::GSM: // nothing todo, default optional values are fine with 0
+    #endif  //defined(BOARD_HAS_TINY_GSM)
+
     #if defined(BOARD_HAS_CELLULAR)
     case NetworkAdapter::CELL: // nothing todo, default optional values are fine with 0
     #endif  //defined(BOARD_HAS_CELLULAR)
