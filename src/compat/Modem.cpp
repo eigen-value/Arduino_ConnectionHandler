@@ -36,45 +36,48 @@ int ModemClass::begin(bool restart)
     digitalWrite(_resetPin, HIGH);
     delay(1000);
     digitalWrite(_resetPin, LOW);
-    delay(3000);  // Wait for module to boot
-  } else {
-    if (!autosense()) {
-      return 0;
+
+    // CRITICAL: Wait for RDY message from EG915
+    Serial.println("Waiting for modem to boot...");
+
+    unsigned long start = millis();
+    bool rdyReceived = false;
+
+    while (millis() - start < 15000) {  // 15 second timeout
+      while (_uart->available()) {
+        char c = _uart->read();
+        Serial.write(c);  // Echo to debug
+
+        static String bootMsg = "";
+        bootMsg += c;
+
+        if (bootMsg.indexOf("RDY") >= 0) {
+          rdyReceived = true;
+          Serial.println("\n✓ Modem ready!");
+          break;
+        }
+
+        // Keep buffer reasonable
+        if (bootMsg.length() > 100) {
+          bootMsg = bootMsg.substring(bootMsg.length() - 50);
+        }
+      }
+
+      if (rdyReceived) break;
+      delay(100);
     }
 
-    if (!reset()) {
-      return 0;
+    if (!rdyReceived) {
+      Serial.println("WARNING: Did not receive RDY message");
     }
+
+    delay(2000);  // Additional safety delay
   }
 
-  if (!autosense()) {
-    return 0;
-  }
-
-  if (_baud > 115200) {
-    sendf("AT+IPR=%ld", _baud);
-    if (waitForResponse() != 1) {
-      return 0;
-    }
-
-    _uart->end();
-    delay(100);
-    _uart->begin(_baud);
-
-    if (!autosense()) {
-      return 0;
-    }
-  }
-
-  if (_dtrPin > -1) {
-    pinMode(_dtrPin, OUTPUT);
-    noLowPowerMode();
-
-    send("AT+UPSV=3");
-    if (waitForResponse() != 1) {
-      return 0;
-    }
-  }
+  // Now safe to send AT commands
+  // Disable echo
+  send("ATE0");
+  waitForResponse(1000);
 
   return 1;
 }
