@@ -84,6 +84,7 @@ private:
   String _response;
   int _pingResult;
   unsigned long _timeout;
+  String _dnsResult;  // For DNS resolution
 };
 
 #endif //GPRS_H
