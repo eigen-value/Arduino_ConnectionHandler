@@ -284,8 +284,6 @@ int GPRS::hostByName(const char* hostname, IPAddress& result)
 
 int GPRS::ping(const char* hostname, uint8_t ttl)
 {
-  String response;
-
   _pingResult = 0;
 
   // EG915: AT+QPING=<contextID>,"<host>"[,<timeout>[,<pingnum>]]
@@ -294,13 +292,31 @@ int GPRS::ping(const char* hostname, uint8_t ttl)
     return GPRS_PING_ERROR;
   }
 
-  // Wait for ping results (URCs)
-  for (unsigned long start = millis(); (millis() - start) < 20000 && (_pingResult == 0);) {
+  // EG915 sends multiple URCs:
+  // - Individual pings: +QPING: 0,"8.8.8.8",32,<time>,113
+  // - Final summary:    +QPING: 0,<sent>,<rcvd>,<lost>,<min>,<max>,<avg>
+  // Need to wait for the FINAL summary URC (has 6 parameters after colon)
+
+  Serial.println("Waiting for ping results...");
+
+  unsigned long start = millis();
+  bool gotFinalResult = false;
+
+  // Wait up to 20 seconds (4 pings * 4s timeout + margin)
+  while (millis() - start < 20000) {
     MODEM.poll();
-    delay(10);
+
+    // Check if we got the final summary (sets _pingResult)
+    if (_pingResult != 0) {
+      gotFinalResult = true;
+      break;
+    }
+
+    delay(100);
   }
 
-  if (_pingResult == 0) {
+  if (!gotFinalResult) {
+    Serial.println("Ping timeout - no final result received");
     _pingResult = GPRS_PING_TIMEOUT;
   }
 
@@ -337,40 +353,64 @@ GSM3_NetworkStatus_t GPRS::status()
 
 void GPRS::handleUrc(const String& urc)
 {
-  // EG915 Ping URC: +QPING: <result>,"<IP_address>",<bytes>,<time>,<ttl>
-  // Final summary: +QPING: <finresult>,<sent>,<rcvd>,<lost>,<min>,<max>,<avg>
-  if (urc.startsWith("+QPING: 0,")) {
-    // Individual ping success: +QPING: 0,"8.8.8.8",32,45,113
-    int lastComma = urc.lastIndexOf(',');
-    int secondLastComma = urc.lastIndexOf(',', lastComma - 1);
+  // EG915 Ping URCs:
+  // Individual: +QPING: 0,"8.8.8.8",32,<time>,113
+  // Final:      +QPING: 0,<sent>,<rcvd>,<lost>,<min>,<max>,<avg>
 
-    if (secondLastComma > 0) {
-      String timeStr = urc.substring(secondLastComma + 1, lastComma);
-      _pingResult = timeStr.toInt();
+  if (urc.startsWith("+QPING: ")) {
+    // Count commas to distinguish individual vs final
+    int commaCount = 0;
+    for (int i = 0; i < urc.length(); i++) {
+      if (urc.charAt(i) == ',') commaCount++;
+    }
 
-      if (_pingResult <= 0) {
+    if (commaCount == 6) {
+      // Final summary: +QPING: 0,4,4,0,0,60,15
+      // Format: result,sent,rcvd,lost,min,max,avg
+      Serial.println("Got final ping summary");
+
+      // Extract average time (last value)
+      int lastComma = urc.lastIndexOf(',');
+      if (lastComma > 0) {
+        String avgStr = urc.substring(lastComma + 1);
+        _pingResult = avgStr.toInt();
+
+        if (_pingResult <= 0) {
+          _pingResult = GPRS_PING_ERROR;
+        }
+
+        Serial.print("Average ping time: ");
+        Serial.print(_pingResult);
+        Serial.println(" ms");
+      }
+    } else if (commaCount == 4) {
+      // Individual ping result (just print for debug, don't set _pingResult yet)
+      Serial.print("Individual ping: ");
+      Serial.println(urc);
+    } else {
+      // Error case
+      char resultCode = urc.charAt(8);
+      if (resultCode == '5' || resultCode == '6') {
+        _pingResult = GPRS_PING_UNKNOWN_HOST;
+      } else if (resultCode != '0') {
         _pingResult = GPRS_PING_ERROR;
       }
     }
-  } else if (urc.startsWith("+QPING: ")) {
-    // Check for error codes
-    char resultCode = urc.charAt(8);
-    if (resultCode == '5' || resultCode == '6' || resultCode == '5' || resultCode == '6') {
-      // 569 = DNS resolution failed, 567 = Network error
-      _pingResult = GPRS_PING_UNKNOWN_HOST;
-    } else if (resultCode != '0') {
-      _pingResult = GPRS_PING_ERROR;
-    }
-  } else if (urc.startsWith("+QIURC: \"dnsgip\",\"")) {
+  }
+  else if (urc.startsWith("+QIURC: \"dnsgip\",\"")) {
     // DNS resolution result
     int startQuote = 18;  // After +QIURC: "dnsgip","
     int endQuote = urc.indexOf('"', startQuote);
 
     if (endQuote > startQuote) {
       _dnsResult = urc.substring(startQuote, endQuote);
+      Serial.print("DNS resolved to: ");
+      Serial.println(_dnsResult);
     }
-  } else if (urc.startsWith("+QIURC: \"pdpdeact\"")) {
+  }
+  else if (urc.startsWith("+QIURC: \"pdpdeact\"")) {
     // PDP context deactivated
+    Serial.println("PDP context deactivated!");
     _status = IDLE;
   }
 }
