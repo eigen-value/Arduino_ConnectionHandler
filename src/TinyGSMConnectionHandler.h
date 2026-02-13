@@ -19,7 +19,7 @@ This file is part of the Arduino_ConnectionHandler library.
 #include "ConnectionHandlerInterface.h"
 
 #if defined(ARDUINO_ARCH_ESP32)
-  #include <TinyGSMCompat.h>
+  #include <compat/TinyGSMCompat.h>
 #endif
 
 #ifndef BOARD_HAS_TINY_GSM
@@ -52,7 +52,7 @@ class TinyGSMConnectionHandler: public ConnectionHandler {
 
   private:
 
-    GSM _gsm{true};
+    GSM _gsm;
     GPRS _gprs;
     GSMUDP _gsm_udp;
     GSMClient _gsm_client;
