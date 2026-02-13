@@ -65,6 +65,8 @@ private:
     String _buffer;
     String* _responseDataStorage;
 
+    friend class GSMUDP;
+
 #define MAX_URC_HANDLERS 10 // 7 sockets + GPRS + GSMLocation + GSMVoiceCall
     static ModemUrcHandler* _urcHandlers[MAX_URC_HANDLERS];
     static Print* _debugPrint;
