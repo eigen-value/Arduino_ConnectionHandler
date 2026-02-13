@@ -186,7 +186,8 @@ int GSM::ready()
     }
 
     case READY_STATE_SET_HEX_MODE: {
-      MODEM.send("AT+UDCONF=1,1");
+      // Disabled u-blox specific hex mode not used
+      // MODEM.send("AT+UDCONF=1,1");
       _readyState = READY_STATE_WAIT_SET_HEX_MODE;
       ready = 0;
       break;
@@ -224,7 +225,8 @@ int GSM::ready()
     }
 
     case READY_STATE_ENABLE_DTMF_DETECTION: {
-      MODEM.send("AT+UDTMFD=1,2");
+      // Disabled DTMF is not needed
+      //MODEM.send("AT+UDTMFD=1,2");
       _readyState = READY_STATE_WAIT_ENABLE_DTMF_DETECTION_RESPONSE;
       ready = 0;
       break;
@@ -278,7 +280,8 @@ int GSM::ready()
     }
 
     case READY_STATE_SET_REPORTING_CALL_STATUS: {
-      MODEM.send("AT+UCALLSTAT=1");
+      // Not needed (use standard AT+CLCC?)
+      // MODEM.send("AT+UCALLSTAT=1");
       _readyState = READY_STATE_WAIT_SET_REPORTING_CALL_STATUS;
       ready = 0;
       break;

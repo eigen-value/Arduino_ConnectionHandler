@@ -7,7 +7,7 @@
 #include <Arduino_ConnectionHandler.h>
 
 // SIM PIN (leave empty "" if no PIN)
-const char* PIN = "";
+const char* PIN = NULL;
 
 // Test with debug enabled
 GSM gsm(true);  // Enable debug output
@@ -142,21 +142,22 @@ void setup() {
   printTestResult("getLocalTime()", localTime > 1600000000);
   delay(500);
 
-  // Test 6: Enter low power mode
-  Serial.println("\nTest 6: Enter low power mode");
-  int lpmResult = gsm.lowPowerMode();
-  Serial.print("Low power mode result: ");
-  Serial.println(lpmResult);
-  printTestResult("lowPowerMode()", lpmResult == 1);
-  delay(3000);  // Wait in low power mode
-
-  // Test 7: Exit low power mode
-  Serial.println("\nTest 7: Exit low power mode");
-  int noLpmResult = gsm.noLowPowerMode();
-  Serial.print("No low power mode result: ");
-  Serial.println(noLpmResult);
-  printTestResult("noLowPowerMode()", noLpmResult == 1);
-  delay(2000);  // Wait for modem to wake up
+  // Only if DTR is used
+  // // Test 6: Enter low power mode
+  // Serial.println("\nTest 6: Enter low power mode");
+  // int lpmResult = gsm.lowPowerMode();
+  // Serial.print("Low power mode result: ");
+  // Serial.println(lpmResult);
+  // printTestResult("lowPowerMode()", lpmResult == 1);
+  // delay(3000);  // Wait in low power mode
+  //
+  // // Test 7: Exit low power mode
+  // Serial.println("\nTest 7: Exit low power mode");
+  // int noLpmResult = gsm.noLowPowerMode();
+  // Serial.print("No low power mode result: ");
+  // Serial.println(noLpmResult);
+  // printTestResult("noLowPowerMode()", noLpmResult == 1);
+  // delay(2000);  // Wait for modem to wake up
 
   // Test 8: Verify still registered after low power mode
   Serial.println("\nTest 8: Check registration after low power mode");

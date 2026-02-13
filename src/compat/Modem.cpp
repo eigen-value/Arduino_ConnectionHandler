@@ -76,8 +76,8 @@ int ModemClass::begin(bool restart)
 
   // Now safe to send AT commands
   // Disable echo
-  send("ATE0");
-  waitForResponse(1000);
+  // send("ATE0");
+  // waitForResponse(1000);
 
   return 1;
 }
