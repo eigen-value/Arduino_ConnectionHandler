@@ -354,53 +354,63 @@ int GSMClient::read(uint8_t *buf, size_t size)
 
   // Read from local buffer first
   if (_rxBufferIndex < _rxBufferLength) {
-    size_t available = _rxBufferLength - _rxBufferIndex;
-    size_t toRead = size < available ? size : available;
-    
+    size_t availableBytes = _rxBufferLength - _rxBufferIndex;
+    size_t toRead = size < availableBytes ? size : availableBytes;
+
     memcpy(buf, _rxBuffer + _rxBufferIndex, toRead);
     _rxBufferIndex += toRead;
-    
+
     return toRead;
   }
 
-  // Fetch more data from modem
-  // AT+QIRD=<connectID>[,<read_length>]
+  // Buffer is empty, fetch more data from modem
+  _rxBufferLength = 0;
+  _rxBufferIndex = 0;
+
+  // Send AT+QIRD command
   MODEM.sendf("AT+QIRD=%d,%d", _socket, sizeof(_rxBuffer));
 
-  String response;
+  // Read response line-by-line until we find +QIRD:
+  String line = "";
+  int dataLength = 0;
   unsigned long start = millis();
+  bool foundQird = false;
 
   while (millis() - start < 5000) {
     if (MODEM._uart->available()) {
       char c = MODEM._uart->read();
+
       if (MODEM._debugPrint) {
         MODEM._debugPrint->write(c);
       }
-      response += c;
 
-      if (response.indexOf("+QIRD: ") >= 0 && c == '\n') {
-        break;
+      if (c == '\n') {
+        line.trim();
+
+        // Check if this is the +QIRD: line
+        if (line.startsWith("+QIRD: ")) {
+          String lengthStr = line.substring(7);
+          lengthStr.trim();
+          dataLength = lengthStr.toInt();
+          foundQird = true;
+          break;
+        }
+
+        line = "";
+      } else if (c != '\r') {
+        line += c;
       }
+    } else {
+      delay(1);
     }
   }
 
-  if (!response.startsWith("+QIRD: ")) {
+  if (!foundQird || dataLength <= 0) {
     return 0;
   }
 
-  // Parse length
-  int qirdStart = response.indexOf("+QIRD: ");
-  int lineEnd = response.indexOf('\n', qirdStart);
-  String lengthStr = response.substring(qirdStart + 7, lineEnd);
-  lengthStr.trim();
-
-  int dataLength = lengthStr.toInt();
-
-  if (dataLength <= 0) {
-    return 0;
-  }
-
-  // Read binary data
+  // Now read exactly dataLength bytes of BINARY data
+  // Do NOT print to debug - it's binary!
   start = millis();
   size_t bytesRead = 0;
 
@@ -413,11 +423,18 @@ int GSMClient::read(uint8_t *buf, size_t size)
   }
 
   if (bytesRead != dataLength) {
+    Serial.print("[read] Expected ");
+    Serial.print(dataLength);
+    Serial.print(" bytes, got ");
+    Serial.println(bytesRead);
     return 0;
   }
 
-  // Read trailing OK
-  delay(50);
+  _rxBufferLength = bytesRead;
+  _rxBufferIndex = 0;
+
+  // Read and display the trailing "\r\nOK\r\n"
+  delay(100);
   while (MODEM._uart->available()) {
     char c = MODEM._uart->read();
     if (MODEM._debugPrint) {
@@ -425,10 +442,7 @@ int GSMClient::read(uint8_t *buf, size_t size)
     }
   }
 
-  _rxBufferLength = bytesRead;
-  _rxBufferIndex = 0;
-
-  // Now read from buffer
+  // Now return data from buffer
   size_t toRead = size < _rxBufferLength ? size : _rxBufferLength;
   memcpy(buf, _rxBuffer, toRead);
   _rxBufferIndex = toRead;
@@ -438,7 +452,7 @@ int GSMClient::read(uint8_t *buf, size_t size)
 
 int GSMClient::read()
 {
-  byte b;
+  uint8_t b;
 
   if (read(&b, 1) == 1) {
     return b;
@@ -461,33 +475,36 @@ int GSMClient::available()
   // Poll to process URCs
   MODEM.poll();
 
-  // Query modem for available data
-  // AT+QIRD=<connectID>,0 returns: +QIRD: <total_recv>,<have_read>,<unread>
+  // Query modem for unread bytes count
+  // AT+QIRD=<id>,0 returns: +QIRD: <total>,<have_read>,<unread>
   String response;
   MODEM.sendf("AT+QIRD=%d,0", _socket);
 
-  if (MODEM.waitForResponse(1000, &response) == 1) {
-    // Parse: +QIRD: 838,838,0
-    //                          ^ we want this (unread bytes)
-    if (response.startsWith("+QIRD: ")) {
-      response.remove(0, 7);  // Remove "+QIRD: "
-      response.trim();
-
-      // Find the last comma (before unread count)
-      int lastComma = response.lastIndexOf(',');
-      if (lastComma > 0) {
-        String unreadStr = response.substring(lastComma + 1);
-        unreadStr.trim();
-        int unread = unreadStr.toInt();
-        return unread;
-      }
-
-      // Fallback: if no commas, return the number (old format compatibility)
-      return response.toInt();
-    }
+  if (MODEM.waitForResponse(1000, &response) != 1) {
+    return 0;
   }
 
-  return 0;
+  if (!response.startsWith("+QIRD: ")) {
+    return 0;
+  }
+
+  // Parse the third number (unread count)
+  // Format: +QIRD: 838,0,838
+  //                      ^^^
+  int firstComma = response.indexOf(',');
+  int secondComma = response.indexOf(',', firstComma + 1);
+
+  if (secondComma < 0) {
+    return 0;
+  }
+
+  String unreadStr = response.substring(secondComma + 1);
+  unreadStr.trim();
+
+  int unread = unreadStr.toInt();
+
+  // If there's unread data, it will be fetched on next read() call
+  return unread;
 }
 
 int GSMClient::peek()

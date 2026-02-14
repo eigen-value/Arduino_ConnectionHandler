@@ -112,8 +112,8 @@ void setup() {
 
   // Test 6: Receive HTTP response
   Serial.println("\nTest 6: Receive HTTP response");
-  bool gotResponse = false;
   String response = "";
+  int headerEnd = -1;
 
   unsigned long start = millis();
   while (millis() - start < 10000) {
@@ -121,27 +121,41 @@ void setup() {
       char c = client.read();
       response += c;
 
-      if (response.indexOf("\r\n\r\n") > 0) {
-        gotResponse = true;
+      // Find end of headers
+      if (headerEnd < 0) {
+        headerEnd = response.indexOf("\r\n\r\n");
+      }
+
+      // For chunked encoding, look for "0\r\n\r\n" at the end
+      if (headerEnd >= 0 && response.endsWith("0\r\n\r\n")) {
         break;
       }
     }
     delay(10);
   }
 
-  if (gotResponse) {
-    Serial.println("Response headers:");
-    int headerEnd = response.indexOf("\r\n\r\n");
-    Serial.println(response.substring(0, headerEnd));
+  if (response.length() > 0) {
+    Serial.println("Full HTTP Response:");
+    Serial.println("===================");
+    Serial.println(response);
+    Serial.println("===================");
 
-    // Check for HTTP 200 OK
+    // Check for HTTP 200 OK in headers
     bool is200 = response.indexOf("200 OK") > 0;
-    printTestResult("Receive HTTP 200 OK", is200);
+
+    // Check if we got the body
+    bool hasBody = response.indexOf("Example Domain") > 0;
+
+    Serial.print("Got 200 OK: ");
+    Serial.println(is200 ? "YES" : "NO");
+    Serial.print("Got HTML body: ");
+    Serial.println(hasBody ? "YES" : "NO");
+
+    printTestResult("Receive HTTP response", is200 && hasBody);
   } else {
     Serial.println("No response received");
     printTestResult("Receive HTTP response", false);
   }
-  delay(500);
 
   // Test 7: Close connection
   Serial.println("\nTest 7: Close connection");
