@@ -221,11 +221,17 @@ int ModemClass::waitForResponse(unsigned long timeout, String* responseDataStora
 
 int ModemClass::waitForPrompt(unsigned long timeout)
 {
-  for (unsigned long start = millis(); (millis() - start) < timeout;) {
-    ready();
+  unsigned long start = millis();
 
-    if (_buffer.endsWith(">")) {
-      return 1;
+  while (millis() - start < timeout) {
+    if (MODEM._uart->available()) {
+      char c = MODEM._uart->read();
+      if (MODEM._debugPrint) {
+        MODEM._debugPrint->write(c);
+      }
+      if (c == '>') {
+        return 1;
+      }
     }
   }
 

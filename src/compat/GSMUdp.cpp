@@ -142,23 +142,7 @@ int GSMUDP::endPacket()
   MODEM.send(command);
   
   // Wait for '>' prompt
-  unsigned long start = millis();
-  bool gotPrompt = false;
-  
-  while (millis() - start < 5000) {
-    if (MODEM._uart->available()) {
-      char c = MODEM._uart->read();
-      if (MODEM._debugPrint) {
-        MODEM._debugPrint->write(c);
-      }
-      if (c == '>') {
-        gotPrompt = true;
-        break;
-      }
-    }
-  }
-
-  if (!gotPrompt) {
+  if (MODEM.waitForPrompt(5000) < 0) {
     return 0;
   }
 
@@ -167,9 +151,18 @@ int GSMUDP::endPacket()
   
   // Wait for SEND OK
   String response;
-  if (MODEM.waitForResponse(10000, &response) == 1) {
-    if (response.indexOf("SEND OK") >= 0 || response == "OK") {
-      return 1;
+  for (unsigned long start = millis(); millis() - start < 10000; ) {
+    if (MODEM._uart->available()) {
+      char c = MODEM._uart->read();
+      response += c;
+      if (MODEM._debugPrint) {
+        MODEM._debugPrint->write(c);
+      }
+      if (response.startsWith("SEND OK") && response.endsWith("\r\n")) {
+        return 1;
+      } else if (response.endsWith("\r\n")) {
+        response = "";
+      }
     }
   }
 
@@ -212,58 +205,111 @@ int GSMUDP::parsePacket()
   }
   _packetReceived = false;
 
-  String response;
-
-  // EG915: AT+QIRD=<connectID>[,<read_length>]
-  // Response: +QIRD: <read_actual_length><CR><LF><data>
+  // EG915 UDP: AT+QIRD=<connectID>[,<read_length>]
+  // Response: +QIRD: <length>,"<source_IP>",<source_port>
   MODEM.sendf("AT+QIRD=%d,%d", _socket, sizeof(_rxBuffer));
-  if (MODEM.waitForResponse(10000, &response) != 1) {
-    return 0;
+
+  String response;
+  unsigned long start = millis();
+
+  // Read response line-by-line to get the +QIRD: header
+  while (millis() - start < 5000) {
+    if (MODEM._uart->available()) {
+      char c = MODEM._uart->read();
+
+      if (MODEM._debugPrint) {
+        MODEM._debugPrint->write(c);
+      }
+
+      response += c;
+
+      if (response.startsWith("AT+QIRD") && response.endsWith("\r\n")) {
+        response = "";
+      } else if (response.startsWith("+QIRD: ") && c == '\n') {
+        break;
+      }
+    }
   }
 
-  // Parse response: +QIRD: <length>
   if (!response.startsWith("+QIRD: ")) {
     return 0;
   }
 
-  // Extract length
-  int lengthEnd = response.indexOf('\n');
-  if (lengthEnd == -1) {
+  // Parse: +QIRD: 48,"132.163.97.4",123
+  response.remove(0, 7);  // Remove "+QIRD: "
+  response.trim();
+
+  // Extract length (first number before comma)
+  int firstComma = response.indexOf(',');
+  if (firstComma < 0) {
     return 0;
   }
 
-  String lengthStr = response.substring(7, lengthEnd);
-  lengthStr.trim();
+  String lengthStr = response.substring(0, firstComma);
   _rxSize = lengthStr.toInt();
 
-  if (_rxSize == 0) {
+  if (_rxSize <= 0) {
     return 0;
   }
 
-  // Read the actual data from UART
-  unsigned long start = millis();
+  // Extract source IP (between quotes)
+  int firstQuote = response.indexOf('"');
+  int secondQuote = response.indexOf('"', firstQuote + 1);
+  if (firstQuote > 0 && secondQuote > firstQuote) {
+    String ipStr = response.substring(firstQuote + 1, secondQuote);
+    _rxIp.fromString(ipStr);
+  } else {
+    _rxIp = IPAddress(0, 0, 0, 0);
+  }
+
+  // Extract source port (after last comma)
+  int lastComma = response.lastIndexOf(',');
+  if (lastComma > 0) {
+    String portStr = response.substring(lastComma + 1);
+    portStr.trim();
+    _rxPort = portStr.toInt();
+  } else {
+    _rxPort = 0;
+  }
+
+  // Now read the binary data
+  start = millis();
   size_t bytesRead = 0;
-  
+
   while (bytesRead < _rxSize && millis() - start < 5000) {
     if (MODEM._uart->available()) {
       _rxBuffer[bytesRead++] = MODEM._uart->read();
+    } else {
+      delay(1);
     }
   }
 
   if (bytesRead != _rxSize) {
+    Serial.print("Expected ");
+    Serial.print(_rxSize);
+    Serial.print(" bytes, got ");
+    Serial.println(bytesRead);
     _rxSize = 0;
     return 0;
   }
 
   _rxIndex = 0;
 
-  // Note: EG915 doesn't provide source IP/port in AT+QIRD response
-  // Would need to parse from +QIURC: "recv" notification
-  // For now, set to unknown
-  _rxIp = IPAddress(0, 0, 0, 0);
-  _rxPort = 0;
+  // Read trailing OK
+  delay(50);
+  while (MODEM._uart->available()) {
+    char c = MODEM._uart->read();
+    if (MODEM._debugPrint) {
+      MODEM._debugPrint->write(c);
+    }
+  }
 
-  MODEM.poll();
+  Serial.print("Received ");
+  Serial.print(_rxSize);
+  Serial.print(" bytes from ");
+  Serial.print(_rxIp);
+  Serial.print(":");
+  Serial.println(_rxPort);
 
   return _rxSize;
 }
@@ -330,25 +376,26 @@ uint16_t GSMUDP::remotePort()
 
 void GSMUDP::handleUrc(const String& urc)
 {
-  // EG915 URC: +QIURC: "recv",<connectID>,<currentrecvlength>
+  // +QIURC: "recv",<connectID>
   if (urc.startsWith("+QIURC: \"recv\",")) {
-    // Parse: +QIURC: "recv",0,123
-    int firstComma = urc.indexOf(',');
-    int secondComma = urc.indexOf(',', firstComma + 1);
-    
-    if (firstComma > 0 && secondComma > firstComma) {
-      String socketStr = urc.substring(firstComma + 1, secondComma);
+    // Parse: +QIURC: "recv",0
+    // Extract socket number (after the last comma)
+    int lastComma = urc.lastIndexOf(',');
+
+    if (lastComma > 0) {
+      String socketStr = urc.substring(lastComma + 1);
+      socketStr.trim();
       int socket = socketStr.toInt();
-      
+
       if (socket == _socket) {
         _packetReceived = true;
       }
     }
-  } 
+  }
   // EG915 URC: +QIURC: "closed",<connectID>
   else if (urc.startsWith("+QIURC: \"closed\",")) {
     int socket = urc.substring(18).toInt();
-    
+
     if (socket == _socket) {
       // This socket closed
       _socket = -1;
@@ -364,7 +411,7 @@ void GSMUDP::handleUrc(const String& urc)
     if (commaIndex > 0) {
       int socket = urc.substring(9, commaIndex).toInt();
       int err = urc.substring(commaIndex + 1).toInt();
-      
+
       if (socket == _socket && err != 0) {
         // Failed to open
         _socket = -1;
