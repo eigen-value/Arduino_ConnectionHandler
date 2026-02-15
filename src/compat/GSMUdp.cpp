@@ -108,8 +108,17 @@ int GSMUDP::beginPacket(const char *host, uint16_t port)
     return 0;
   }
 
-  _txIp = (uint32_t)0;
-  _txHost = host;
+  // Try to resolve hostname to IP
+  IPAddress resolvedIP;
+
+  if (hostByName(host, resolvedIP)) {
+    _txIp = resolvedIP;
+    _txHost = NULL;
+  } else {
+    _txIp = (uint32_t)0;
+    _txHost = host;
+  }
+
   _txPort = port;
   _txSize = 0;
 
@@ -418,4 +427,63 @@ void GSMUDP::handleUrc(const String& urc)
       }
     }
   }
+}
+
+int GSMUDP::hostByName(const char* hostname, IPAddress& result)
+{
+  // Check if it's already an IP address
+  if (result.fromString(hostname)) {
+    return 1;  // Already an IP
+  }
+
+  // Use GPRS class DNS resolution
+  // This assumes you have a global gprs object or can access it
+  // Alternative: do DNS resolution directly here
+
+  String response;
+
+  // EG915: AT+QIDNSGIP=<contextID>,"<domain_name>"
+  MODEM.sendf("AT+QIDNSGIP=1,\"%s\"", hostname);
+
+  // Wait for +QIURC: "dnsgip","<IP>" URC
+  unsigned long start = millis();
+  String dnsResult = "";
+
+  while (millis() - start < 60000) {  // DNS can take up to 60s
+
+    // Check UART for URC
+    while (MODEM._uart->available()) {
+      String line = MODEM._uart->readStringUntil('\n');
+      line.trim();
+
+      if (MODEM._debugPrint) {
+        MODEM._debugPrint->println(line);
+      }
+
+      if (line.startsWith("AT") && line.endsWith("\r\n")) line = "";
+
+      // +QIURC: "dnsgip","192.168.1.1"
+      if (line.startsWith("+QIURC: \"dnsgip\",\"")) {
+        int startQuote = 18;  // After +QIURC: "dnsgip","
+        int endQuote = line.indexOf('"', startQuote);
+
+        if (endQuote > startQuote) {
+          dnsResult = line.substring(startQuote, endQuote);
+          break;
+        }
+      }
+    }
+
+    if (dnsResult.length() > 0) {
+      break;
+    }
+
+    delay(100);
+  }
+
+  if (dnsResult.length() > 0 && result.fromString(dnsResult)) {
+    return 1;
+  }
+
+  return 0;
 }

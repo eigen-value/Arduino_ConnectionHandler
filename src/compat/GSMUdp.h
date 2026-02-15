@@ -57,6 +57,8 @@ public:
 
   virtual void handleUrc(const String& urc);
 
+  int hostByName(const char* hostname, IPAddress& result);
+
 private:
   int _socket;
   bool _packetReceived;
