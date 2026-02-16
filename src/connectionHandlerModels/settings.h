@@ -55,16 +55,16 @@ namespace models {
   };
   #endif // BOARD_HAS_ETHERNET
 
-  #if defined(BOARD_HAS_NB) || defined(BOARD_HAS_GSM) ||defined(BOARD_HAS_CELLULAR) || defined(BOARD_HAS_TINY_GSM)
+  #if defined(BOARD_HAS_NB) || defined(BOARD_HAS_GSM) ||defined(BOARD_HAS_CELLULAR)
   struct CellularSetting {
     char pin[CellularPinLength];
     char apn[CellularApnLength];
     char login[CellularLoginLength];
     char pass[CellularPassLength];
   };
-  #endif // defined(BOARD_HAS_NB) || defined(BOARD_HAS_GSM) || defined(BOARD_HAS_CATM1_NBIOT) || defined(BOARD_HAS_CELLULAR) || defined(BOARD_HAS_TINY_GSM)
+  #endif // defined(BOARD_HAS_NB) || defined(BOARD_HAS_GSM) || defined(BOARD_HAS_CATM1_NBIOT) || defined(BOARD_HAS_CELLULAR)
 
-  #if defined(BOARD_HAS_GSM) || defined(BOARD_HAS_TINY_GSM)
+  #if defined(BOARD_HAS_GSM)
   typedef CellularSetting GSMSetting;
   #endif //defined(BOARD_HAS_GSM)
 
@@ -108,7 +108,7 @@ namespace models {
       NBSetting       nb;
       #endif
 
-      #if defined(BOARD_HAS_GSM) || defined(BOARD_HAS_TINY_GSM)
+      #if defined(BOARD_HAS_GSM)
       GSMSetting      gsm;
       #endif
 

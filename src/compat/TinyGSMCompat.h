@@ -11,10 +11,6 @@ This file is part of the Arduino_ConnectionHandler library.
 #ifndef TINY_GSM_COMPAT_H
 #define TINY_GSM_COMPAT_H
 
-// ESP32 implementation using TinyGSM
-#define TINY_GSM_MODEM_BG96
-#include <TinyGsmClient.h>
-
 #include "GSM.h"
 #include "GPRS.h"
 #include "GSMClient.h"

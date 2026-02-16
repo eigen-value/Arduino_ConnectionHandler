@@ -34,10 +34,6 @@
   #include "GSMConnectionHandler.h"
 #endif
 
-#if defined(BOARD_HAS_TINY_GSM)
-  #include "TinyGSMConnectionHandler.h"
-#endif
-
 #if defined(BOARD_HAS_NB)
   #include "NBConnectionHandler.h"
 #endif

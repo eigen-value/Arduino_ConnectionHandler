@@ -57,8 +57,9 @@ target_compile_definitions(${PROJECT_NAME}
         PUBLIC
         ARDUINO=10819        # remove if not using Arduino Core for ESP32
         ARDUINO_ARCH_ESP32
+        CONFIG_IDF_TARGET_ESP32S3
         # ARDUINO_ESP32_DATALOGGER
-        BOARD_HAS_TINY_GSM
+        BOARD_HAS_GSM
 )
 
 # Mark headers as public headers
