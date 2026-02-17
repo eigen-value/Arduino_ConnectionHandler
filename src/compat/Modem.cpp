@@ -23,10 +23,15 @@ ModemClass::ModemClass(HardwareSerial& uart, unsigned long baud, int resetPin, i
   _responseDataStorage(NULL)
 {
   _buffer.reserve(64);
+#if defined(ESP32)
+  _mutex = xSemaphoreCreateRecursiveMutex();
+#endif
 }
 
 int ModemClass::begin(bool restart)
 {
+  Lock lock(*this);
+
   _uart->begin(_baud > 115200 ? 115200 : _baud, SERIAL_8N1, MODEM_RX, MODEM_TX);
 
   if (_resetPin > -1 && restart) {
@@ -84,6 +89,8 @@ int ModemClass::begin(bool restart)
 
 void ModemClass::end()
 {
+  Lock lock(*this);
+
   _uart->end();
   digitalWrite(_resetPin, HIGH);
 
@@ -122,6 +129,8 @@ int ModemClass::autosense(unsigned int timeout)
 
 int ModemClass::noop()
 {
+  Lock lock(*this);
+
   send("AT");
 
   return (waitForResponse() == 1);
@@ -129,6 +138,8 @@ int ModemClass::noop()
 
 int ModemClass::reset()
 {
+  Lock lock(*this);
+
   send("AT+CFUN=16");
 
   return (waitForResponse(1000) == 1);
@@ -162,16 +173,22 @@ int ModemClass::noLowPowerMode()
 
 size_t ModemClass::write(uint8_t c)
 {
+  Lock lock(*this);
+
   return _uart->write(c);
 }
 
 size_t ModemClass::write(const uint8_t* buf, size_t size)
 {
+  Lock lock(*this);
+
   return _uart->write(buf, size);
 }
 
 void ModemClass::send(const char* command)
 {
+  Lock lock(*this);
+
   if (_lowPowerMode) {
     digitalWrite(_dtrPin, LOW);
     delay(5);
@@ -204,6 +221,8 @@ void ModemClass::sendf(const char *fmt, ...)
 
 int ModemClass::waitForResponse(unsigned long timeout, String* responseDataStorage)
 {
+  Lock lock(*this);
+
   _responseDataStorage = responseDataStorage;
   for (unsigned long start = millis(); (millis() - start) < timeout;) {
     int r = ready();
@@ -221,6 +240,8 @@ int ModemClass::waitForResponse(unsigned long timeout, String* responseDataStora
 
 int ModemClass::waitForPrompt(unsigned long timeout)
 {
+  Lock lock(*this);
+
   unsigned long start = millis();
 
   while (millis() - start < timeout) {
@@ -247,6 +268,8 @@ int ModemClass::ready()
 
 void ModemClass::poll()
 {
+  Lock lock(*this);
+
   while (_uart->available()) {
     char c = _uart->read();
 
@@ -328,11 +351,15 @@ void ModemClass::poll()
 
 void ModemClass::setResponseDataStorage(String* responseDataStorage)
 {
+  Lock lock(*this);
+
   _responseDataStorage = responseDataStorage;
 }
 
 void ModemClass::addUrcHandler(ModemUrcHandler* handler)
 {
+  Lock lock(*this);
+
   for (int i = 0; i < MAX_URC_HANDLERS; i++) {
     if (_urcHandlers[i] == NULL) {
       _urcHandlers[i] = handler;
@@ -343,6 +370,8 @@ void ModemClass::addUrcHandler(ModemUrcHandler* handler)
 
 void ModemClass::removeUrcHandler(ModemUrcHandler* handler)
 {
+  Lock lock(*this);
+
   for (int i = 0; i < MAX_URC_HANDLERS; i++) {
     if (_urcHandlers[i] == handler) {
       _urcHandlers[i] = NULL;
@@ -354,6 +383,37 @@ void ModemClass::removeUrcHandler(ModemUrcHandler* handler)
 void ModemClass::setBaudRate(unsigned long baud)
 {
   _baud = baud;
+}
+
+bool ModemClass::lock(uint32_t timeoutMs)
+{
+#if defined(ESP32)
+
+  if (_mutex == nullptr) {
+    _mutex = xSemaphoreCreateRecursiveMutex();
+    if (_mutex == nullptr) {
+      // catastrophic: no heap for mutex
+      return false;
+    }
+  }
+
+  TickType_t ticks = (timeoutMs == 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeoutMs);
+
+  return xSemaphoreTakeRecursive(_mutex, ticks) == pdTRUE;
+#else
+  // Non-RTOS platforms: nothing to do
+  (void)timeoutMs;
+  return true;
+#endif
+}
+
+void ModemClass::unlock()
+{
+#if defined(ESP32)
+  if (_mutex) {
+    xSemaphoreGiveRecursive(_mutex);
+  }
+#endif
 }
 
 HardwareSerial SerialGSM(1);

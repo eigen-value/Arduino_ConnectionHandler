@@ -40,6 +40,8 @@ GSMClient::~GSMClient()
 
 int GSMClient::ready()
 {
+  ModemClass::Lock lock(MODEM);
+
   int ready = MODEM.ready();
 
   if (ready == 0) {
@@ -133,6 +135,8 @@ int GSMClient::ready()
 
 int GSMClient::connect(IPAddress ip, uint16_t port)
 {
+  ModemClass::Lock lock(MODEM);
+
   _ip = ip;
   _host = NULL;
   _port = port;
@@ -143,6 +147,8 @@ int GSMClient::connect(IPAddress ip, uint16_t port)
 
 int GSMClient::connectSSL(IPAddress ip, uint16_t port)
 {
+  ModemClass::Lock lock(MODEM);
+
   _ip = ip;
   _host = NULL;
   _port = port;
@@ -153,6 +159,8 @@ int GSMClient::connectSSL(IPAddress ip, uint16_t port)
 
 int GSMClient::connect(const char *host, uint16_t port)
 {
+  ModemClass::Lock lock(MODEM);
+
   _ip = (uint32_t)0;
   _host = host;
   _port = port;
@@ -163,6 +171,8 @@ int GSMClient::connect(const char *host, uint16_t port)
 
 int GSMClient::connectSSL(const char *host, uint16_t port)
 {
+  ModemClass::Lock lock(MODEM);
+
   _ip = (uint32_t)0;
   _host = host;
   _port = port;
@@ -173,6 +183,8 @@ int GSMClient::connectSSL(const char *host, uint16_t port)
 
 int GSMClient::connect()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket != -1) {
     stop();
   }
@@ -195,21 +207,29 @@ int GSMClient::connect()
 
 void GSMClient::beginWrite(bool sync)
 {
+  ModemClass::Lock lock(MODEM);
+
   _writeSync = sync;
 }
 
 size_t GSMClient::write(uint8_t c)
 {
+  ModemClass::Lock lock(MODEM);
+
   return write(&c, 1);
 }
 
 size_t GSMClient::write(const uint8_t *buf)
 {
+  ModemClass::Lock lock(MODEM);
+
   return write(buf, strlen((const char*)buf));
 }
 
 size_t GSMClient::write(const uint8_t* buf, size_t size)
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_writeSync) {
     while (ready() == 0);
   } else if (ready() == 0) {
@@ -317,6 +337,8 @@ void GSMClient::endWrite(bool /*sync*/)
 
 uint8_t GSMClient::connected()
 {
+  ModemClass::Lock lock(MODEM);
+
   MODEM.poll();
 
   if (_socket == -1 || !_connected) {
@@ -339,11 +361,15 @@ uint8_t GSMClient::connected()
 
 GSMClient::operator bool()
 {
+  ModemClass::Lock lock(MODEM);
+
   return (_socket != -1 && _connected);
 }
 
 int GSMClient::read(uint8_t *buf, size_t size)
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket == -1 || !_connected) {
     return 0;
   }
@@ -452,6 +478,8 @@ int GSMClient::read(uint8_t *buf, size_t size)
 
 int GSMClient::read()
 {
+  ModemClass::Lock lock(MODEM);
+
   uint8_t b;
 
   if (read(&b, 1) == 1) {
@@ -463,6 +491,8 @@ int GSMClient::read()
 
 int GSMClient::available()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket == -1 || !_connected) {
     return 0;
   }
@@ -509,6 +539,8 @@ int GSMClient::available()
 
 int GSMClient::peek()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_rxBufferIndex < _rxBufferLength) {
     return _rxBuffer[_rxBufferIndex];
   }
@@ -518,12 +550,16 @@ int GSMClient::peek()
 
 void GSMClient::flush()
 {
+  ModemClass::Lock lock(MODEM);
+
   _rxBufferIndex = 0;
   _rxBufferLength = 0;
 }
 
 void GSMClient::stop()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket < 0) {
     return;
   }
@@ -540,6 +576,8 @@ void GSMClient::stop()
 
 void GSMClient::handleUrc(const String& urc)
 {
+  ModemClass::Lock lock(MODEM);
+
   // +QIOPEN: <connectID>,<err>
   if (urc.startsWith("+QIOPEN: ")) {
     int commaIndex = urc.indexOf(',');
@@ -570,6 +608,8 @@ void GSMClient::handleUrc(const String& urc)
 
 void GSMClient::setCertificateValidationLevel(uint8_t ssl)
 {
+  ModemClass::Lock lock(MODEM);
+
   _sslprofile = ssl;
 }
 
@@ -581,5 +621,7 @@ IPAddress GSMClient::remoteIP()
 
 uint16_t GSMClient::remotePort()
 {
+  ModemClass::Lock lock(MODEM);
+
   return _port;
 }

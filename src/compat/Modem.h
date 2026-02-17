@@ -5,6 +5,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#if defined(ESP32)
+  #include "freertos/FreeRTOS.h"
+  #include "freertos/semphr.h"
+#endif
+
 #include <Arduino.h>
 
 class ModemUrcHandler {
@@ -14,6 +19,27 @@ public:
 
 class ModemClass {
 public:
+
+    class Lock {
+    public:
+        explicit Lock(ModemClass& m, uint32_t timeoutMs = 0)
+          : _m(m), _locked(false)
+        {
+            _locked = _m.lock(timeoutMs);
+        }
+
+        ~Lock() {
+            if (_locked) _m.unlock();
+        }
+
+        // optional: allow checking
+        bool locked() const { return _locked; }
+
+    private:
+        ModemClass& _m;
+        bool _locked;
+    };
+
     ModemClass(HardwareSerial& uart, unsigned long baud, int resetPin, int dtrPin);
 
     int begin(bool restart = true);
@@ -49,7 +75,13 @@ public:
 
     void setBaudRate(unsigned long baud);
 
+    bool lock(uint32_t timeoutMs = 30000);
+    void unlock();
+
 private:
+#if defined(ESP32)
+    SemaphoreHandle_t _mutex = nullptr;
+#endif
     HardwareSerial* _uart;
     unsigned long _baud;
     int _resetPin;

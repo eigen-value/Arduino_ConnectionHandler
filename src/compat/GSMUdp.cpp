@@ -23,6 +23,8 @@ GSMUDP::~GSMUDP()
 
 uint8_t GSMUDP::begin(uint16_t port)
 {
+  ModemClass::Lock lock(MODEM);
+
   String response;
 
   // EG915: AT+QIOPEN=<contextID>,<connectID>,<service_type>,<IP_address>/<domain_name>,<remote_port>,<local_port>[,<access_mode>]
@@ -77,6 +79,8 @@ uint8_t GSMUDP::begin(uint16_t port)
 
 void GSMUDP::stop()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket < 0) {
     return;
   }
@@ -90,6 +94,8 @@ void GSMUDP::stop()
 
 int GSMUDP::beginPacket(IPAddress ip, uint16_t port)
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket < 0) {
     return 0;
   }
@@ -104,6 +110,8 @@ int GSMUDP::beginPacket(IPAddress ip, uint16_t port)
 
 int GSMUDP::beginPacket(const char *host, uint16_t port)
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket < 0) {
     return 0;
   }
@@ -127,6 +135,8 @@ int GSMUDP::beginPacket(const char *host, uint16_t port)
 
 int GSMUDP::endPacket()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket < 0 || _txSize == 0) {
     return 0;
   }
@@ -180,11 +190,15 @@ int GSMUDP::endPacket()
 
 size_t GSMUDP::write(uint8_t b)
 {
+  ModemClass::Lock lock(MODEM);
+
   return write(&b, sizeof(b));
 }
 
 size_t GSMUDP::write(const uint8_t *buffer, size_t size)
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket < 0) {
     return 0;
   }
@@ -203,6 +217,8 @@ size_t GSMUDP::write(const uint8_t *buffer, size_t size)
 
 int GSMUDP::parsePacket()
 {
+  ModemClass::Lock lock(MODEM);
+
   MODEM.poll();
 
   if (_socket < 0) {
@@ -325,6 +341,8 @@ int GSMUDP::parsePacket()
 
 int GSMUDP::available()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_socket < 0) {
     return 0;
   }
@@ -334,6 +352,8 @@ int GSMUDP::available()
 
 int GSMUDP::read()
 {
+  ModemClass::Lock lock(MODEM);
+
   byte b;
 
   if (read(&b, sizeof(b)) == 1) {
@@ -345,6 +365,8 @@ int GSMUDP::read()
 
 int GSMUDP::read(unsigned char* buffer, size_t len)
 {
+  ModemClass::Lock lock(MODEM);
+
   size_t readMax = available();
 
   if (len > readMax) {
@@ -360,6 +382,8 @@ int GSMUDP::read(unsigned char* buffer, size_t len)
 
 int GSMUDP::peek()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (available() > 0) {
     return _rxBuffer[_rxIndex];
   }
@@ -369,6 +393,8 @@ int GSMUDP::peek()
 
 void GSMUDP::flush()
 {
+  ModemClass::Lock lock(MODEM);
+
   _rxIndex = 0;
   _rxSize = 0;
 }
@@ -385,6 +411,8 @@ uint16_t GSMUDP::remotePort()
 
 void GSMUDP::handleUrc(const String& urc)
 {
+  ModemClass::Lock lock(MODEM);
+
   // +QIURC: "recv",<connectID>
   if (urc.startsWith("+QIURC: \"recv\",")) {
     // Parse: +QIURC: "recv",0
@@ -431,6 +459,8 @@ void GSMUDP::handleUrc(const String& urc)
 
 int GSMUDP::hostByName(const char* hostname, IPAddress& result)
 {
+  ModemClass::Lock lock(MODEM);
+
   // Check if it's already an IP address
   if (result.fromString(hostname)) {
     return 1;  // Already an IP

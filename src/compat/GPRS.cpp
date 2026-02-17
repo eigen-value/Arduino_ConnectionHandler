@@ -34,6 +34,8 @@ GPRS::~GPRS()
 
 GSM3_NetworkStatus_t GPRS::attachGPRS(const char* apn, const char* user_name, const char* password, bool synchronous)
 {
+  ModemClass::Lock lock(MODEM);
+
   _apn = apn;
   _username = user_name;
   _password = password;
@@ -61,6 +63,8 @@ GSM3_NetworkStatus_t GPRS::attachGPRS(const char* apn, const char* user_name, co
 
 GSM3_NetworkStatus_t GPRS::detachGPRS(bool synchronous)
 {
+  ModemClass::Lock lock(MODEM);
+
   _state = GPRS_STATE_DEACTIVATE_PDP;
 
   if (synchronous) {
@@ -76,6 +80,8 @@ GSM3_NetworkStatus_t GPRS::detachGPRS(bool synchronous)
 
 int GPRS::ready()
 {
+  ModemClass::Lock lock(MODEM);
+
   int ready = MODEM.ready();
 
   if (ready == 0) {
@@ -224,6 +230,8 @@ int GPRS::ready()
 
 IPAddress GPRS::getIPAddress()
 {
+  ModemClass::Lock lock(MODEM);
+
   String response;
 
   // EG915: AT+QIACT? returns IP address
@@ -248,11 +256,15 @@ IPAddress GPRS::getIPAddress()
 
 void GPRS::setTimeout(unsigned long timeout)
 {
+  ModemClass::Lock lock(MODEM);
+
   _timeout = timeout;
 }
 
 int GPRS::hostByName(const char* hostname, IPAddress& result)
 {
+  ModemClass::Lock lock(MODEM);
+
   String response;
 
   // EG915: AT+QIDNSGIP=<contextID>,"<domain_name>"
@@ -284,6 +296,8 @@ int GPRS::hostByName(const char* hostname, IPAddress& result)
 
 int GPRS::ping(const char* hostname, uint8_t ttl)
 {
+  ModemClass::Lock lock(MODEM);
+
   _pingResult = 0;
 
   // EG915: AT+QPING=<contextID>,"<host>"[,<timeout>[,<pingnum>]]
@@ -325,11 +339,15 @@ int GPRS::ping(const char* hostname, uint8_t ttl)
 
 int GPRS::ping(const String &hostname, uint8_t ttl)
 {
+  ModemClass::Lock lock(MODEM);
+
   return ping(hostname.c_str(), ttl);
 }
 
 int GPRS::ping(IPAddress ip, uint8_t ttl)
 {
+  ModemClass::Lock lock(MODEM);
+
   String host;
   host.reserve(15);
 
@@ -346,6 +364,8 @@ int GPRS::ping(IPAddress ip, uint8_t ttl)
 
 GSM3_NetworkStatus_t GPRS::status()
 {
+  ModemClass::Lock lock(MODEM);
+
   MODEM.poll();
 
   return _status;
@@ -353,6 +373,8 @@ GSM3_NetworkStatus_t GPRS::status()
 
 void GPRS::handleUrc(const String& urc)
 {
+  ModemClass::Lock lock(MODEM);
+
   // EG915 Ping URCs:
   // Individual: +QPING: 0,"8.8.8.8",32,<time>,113
   // Final:      +QPING: 0,<sent>,<rcvd>,<lost>,<min>,<max>,<avg>

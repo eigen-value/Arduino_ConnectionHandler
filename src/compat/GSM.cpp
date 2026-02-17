@@ -38,6 +38,8 @@ GSM::GSM(bool debug) :
 
 GSM3_NetworkStatus_t GSM::begin(const char* pin, bool restart, bool synchronous)
 {
+  ModemClass::Lock lock(MODEM);
+
   if (!MODEM.begin(restart)) {
     _state = ERROR;
   } else {
@@ -66,6 +68,8 @@ GSM3_NetworkStatus_t GSM::begin(const char* pin, bool restart, bool synchronous)
 
 int GSM::isAccessAlive()
 {
+  ModemClass::Lock lock(MODEM);
+
   String response;
 
   MODEM.send("AT+CREG?");
@@ -82,6 +86,8 @@ int GSM::isAccessAlive()
 
 bool GSM::shutdown()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_state == GSM_READY) {
     MODEM.send("AT+CPWROFF");
     MODEM.waitForResponse(40000);
@@ -93,6 +99,8 @@ bool GSM::shutdown()
 
 bool GSM::secureShutdown()
 {
+  ModemClass::Lock lock(MODEM);
+
   MODEM.end();
   _state = GSM_OFF;
   return true;
@@ -100,6 +108,8 @@ bool GSM::secureShutdown()
 
 int GSM::ready()
 {
+  ModemClass::Lock lock(MODEM);
+
   if (_state == ERROR) {
     return 2;
   }
@@ -308,11 +318,15 @@ int GSM::ready()
 
 void GSM::setTimeout(unsigned long timeout)
 {
+  ModemClass::Lock lock(MODEM);
+
   _timeout = timeout;
 }
 
 unsigned long GSM::getTime()
 {
+  ModemClass::Lock lock(MODEM);
+
   String response;
 
   MODEM.send("AT+CCLK?");
@@ -342,6 +356,8 @@ unsigned long GSM::getTime()
 
 unsigned long GSM::getLocalTime()
 {
+  ModemClass::Lock lock(MODEM);
+
   String response;
 
   MODEM.send("AT+CCLK?");
@@ -361,15 +377,21 @@ unsigned long GSM::getLocalTime()
 
 int GSM::lowPowerMode()
 {
+  ModemClass::Lock lock(MODEM);
+
   return MODEM.lowPowerMode();
 }
 
 int GSM::noLowPowerMode()
 {
+  ModemClass::Lock lock(MODEM);
+
   return MODEM.noLowPowerMode();
 }
 
 GSM3_NetworkStatus_t GSM::status()
 {
+  ModemClass::Lock lock(MODEM);
+
   return _state;
 }
