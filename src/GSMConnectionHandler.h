@@ -21,6 +21,10 @@
   #include <MKRGSM.h>
 #endif
 
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  #include <EG915GSM.h>
+#endif
+
 #ifndef BOARD_HAS_GSM
   #error "Board doesn't support GSM"
 #endif

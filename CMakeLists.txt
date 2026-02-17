@@ -41,6 +41,8 @@ target_include_directories(${PROJECT_NAME}
         ${ARDUINO_LIB_PATH}/MKRGSM/src
         ${ARDUINO_LIB_PATH}/TinyGSM/src
         ${ARDUINO_LIB_PATH}/ArduinoIoTCloud/src
+        ${ARDUINO_LIB_PATH}/Arduino_DebugUtils/src
+        ${ARDUINO_LIB_PATH}/EG915GSM/src
         # ESP32 libraries
         # ${ESP32_LIB_PATH}/SPI/src
 
