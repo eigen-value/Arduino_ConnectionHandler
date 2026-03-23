@@ -78,6 +78,10 @@ NetworkConnectionState GenericConnectionHandler::update_handleDisconnected() {
     return _ch != nullptr ? _ch->update_handleDisconnected() : NetworkConnectionState::INIT;
 }
 
+NetworkConnectionState GenericConnectionHandler::update_handleError() {
+    return _ch != nullptr ? _ch->update_handleError() : NetworkConnectionState::INIT;
+}
+
 #if not (defined(BOARD_HAS_LORA) or defined(BOARD_HAS_NOTECARD))
 unsigned long GenericConnectionHandler::getTime() {
     return _ch != nullptr ? _ch->getTime() : 0;
