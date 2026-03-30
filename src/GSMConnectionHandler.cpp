@@ -85,14 +85,18 @@ NetworkConnectionState GSMConnectionHandler::update_handleInit()
 
   mkr_gsm_feed_watchdog();
 
-  GSM3_NetworkStatus_t const network_status = _gprs.attachGPRS(
-    _settings.gsm.apn, _settings.gsm.login, _settings.gsm.pass, true);
-  DEBUG_DEBUG(F("GPRS.attachGPRS(): %d"), network_status);
-  if (network_status == GSM3_NetworkStatus_t::ERROR)
+  while (true)
   {
-    DEBUG_ERROR(F("GPRS attach failed"));
-    DEBUG_ERROR(F("Make sure the antenna is connected and reset your board."));
-    return NetworkConnectionState::ERROR;
+    GSM3_NetworkStatus_t network_status = _gprs.attachGPRS(
+    _settings.gsm.apn, _settings.gsm.login, _settings.gsm.pass, true);
+    DEBUG_DEBUG(F("GPRS.attachGPRS(): %d"), network_status);
+
+    if (network_status == GSM3_NetworkStatus_t::ERROR) {
+      DEBUG_ERROR(F("GPRS attach failed"));
+      DEBUG_ERROR(F("Make sure the antenna is connected and reset your board."));
+    } else {
+      break;
+    }
   }
 
   return NetworkConnectionState::CONNECTING;
